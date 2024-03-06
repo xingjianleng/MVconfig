@@ -25,7 +25,7 @@ from src.utils.nms import nms
 from src.utils.meters import AverageMeter
 from src.utils.projection import project_2d_points
 from src.utils.image_utils import add_heatmap_to_image, img_color_denormalize
-from src.utils.tensor_utils import expectation, tanh_prime, dist_action, dist_l2, to_tensor
+from src.utils.tensor_utils import expectation, tanh_prime, dist_action, dist_l2, to_tensor, _transpose_and_gather_feat
 
 
 # visualize
@@ -165,7 +165,7 @@ class PerspectiveTrainer(object):
         # NOTE: Not adding tracking to reward computation since tracking task requires multiple frames
         #       to produce performance evaluation. However, at the end of each episode we only get a single frame.
         # TODO: But this feature may be implemented in the future - using track metrics as reward functions!!!
-        rewards, stats = self.rl_rewards(dataset, action_history, model_feat[0].cpu(), (world_heatmap, world_offset),
+        rewards, stats = self.rl_rewards(dataset, action_history, model_feat[0].cpu(), (world_heatmap, world_offset, world_id),
                                          world_gt, frame, proj_mats, imgs_gt)
         coverages, task_loss, moda, min_dist = stats
         if rewards.sum().item() > self.best_episodic_return:
@@ -228,7 +228,9 @@ class PerspectiveTrainer(object):
         # weighted_cover_map = obs_covermaps[1:]
         weighted_cover_map *= world_gt['heatmap']
         # compute loss & moda based on final result
-        world_heatmap, world_offset = world_res[0].detach().cpu(), world_res[1].detach().cpu()
+        world_heatmap, world_offset, world_id = (world_res[0].detach().cpu(),
+                                                 world_res[1].detach().cpu(),
+                                                 world_res[2].detach().cpu())
         # loss
         task_loss = focal_loss(world_heatmap, world_gt['heatmap'][None, :])
         # MODA
@@ -250,6 +252,16 @@ class PerspectiveTrainer(object):
         min_dist = torch.zeros([N])
         for i in range(1, N):
             min_dist[i] += torch.min(action_dist[i, :i])
+        # reID classification -- NEWLY ADDED FEATURE
+        ind = world_gt['idx'].unsqueeze(0)  # put into batch
+        mask = world_gt['reg_mask'].unsqueeze(0)  # put into batch
+        gt_id = world_gt['pid'].unsqueeze(0)  # put into batch
+        pred = _transpose_and_gather_feat(world_id, ind)
+        if len(gt_id[mask]) != 0:
+            reid_acc = (pred[mask].argmax(dim=-1) == gt_id[mask]).numpy().mean() * 100.
+        else:
+            reid_acc = 0.
+
         # use coverage, loss, or MODA as reward
         rewards = torch.zeros([N])
         if 'maxcover' in self.args.reward:
@@ -293,6 +305,8 @@ class PerspectiveTrainer(object):
             mean_visibility = [world_point_visibility[:cam + 1].max(dim=0)[0].mean().item() for cam in range(N)]
             mean_visibility = to_tensor([0] + mean_visibility)
             rewards += mean_visibility[1:] - mean_visibility[:-1]
+        if 'reid_acc' in self.args.reward:
+            rewards[-1] += self.args.reid_acc_reward_factor * reid_acc / 100
 
         return rewards, (overall_coverages, task_loss.item(), moda, min_dist)
 

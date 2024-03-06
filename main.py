@@ -390,6 +390,8 @@ if __name__ == '__main__':
                         help='object confidence threshold')
     parser.add_argument('--tracker_gating_threshold', type=float, default=1000,
                         help='gating threshold for motion fusion matching')
+    # The argument below is used when we use reID classification head as reward function to train the control module
+    parser.add_argument('--reid_acc_reward_factor', type=float, default=0.1)
 
     args = parser.parse_args()
 
