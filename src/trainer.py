@@ -167,7 +167,7 @@ class PerspectiveTrainer(object):
         # TODO: But this feature may be implemented in the future - using track metrics as reward functions!!!
         rewards, stats = self.rl_rewards(dataset, action_history, model_feat[0].cpu(), (world_heatmap, world_offset, world_id),
                                          world_gt, frame, proj_mats, imgs_gt)
-        coverages, task_loss, moda, min_dist = stats
+        coverages, task_loss, moda, min_dist, reid_acc = stats
         if rewards.sum().item() > self.best_episodic_return:
             self.best_episodic_return = rewards.sum().item()
             self.best_action = torch.cat(action_history)
@@ -198,12 +198,14 @@ class PerspectiveTrainer(object):
             self.memory_bank['world_gt'].append(world_gt)
 
         if self.writer is not None:
+            # This parts write the value of possible components of the reward to tensorboard
             self.writer.add_scalar("charts/episodic_return", rewards.sum().item(), self.rl_global_step)
             self.writer.add_scalar("charts/episodic_length", step, self.rl_global_step)
             self.writer.add_scalar("charts/coverage", coverages[-1].item(), self.rl_global_step)
             self.writer.add_scalar("charts/action_dist", min_dist.mean().item(), self.rl_global_step)
             self.writer.add_scalar("charts/loss", task_loss, self.rl_global_step)
             self.writer.add_scalar("charts/moda", moda, self.rl_global_step)
+            self.writer.add_scalar("charts/reid_acc", reid_acc, self.rl_global_step)
             if visualize:
                 self.writer.add_image("images/coverage",
                                       cover_visualize(dataset, model_feat[0], world_heatmap[0], world_gt),
@@ -308,7 +310,7 @@ class PerspectiveTrainer(object):
         if 'reid_acc' in self.args.reward:
             rewards[-1] += self.args.reid_acc_reward_factor * reid_acc / 100
 
-        return rewards, (overall_coverages, task_loss.item(), moda, min_dist)
+        return rewards, (overall_coverages, task_loss.item(), moda, min_dist, reid_acc)
 
     def get_advantages(self, b_step, b_configs, b_imgs, b_aug_mats, b_proj_mats,
                        b_actions, b_rewards, b_dones, b_imgs_inds):
