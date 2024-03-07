@@ -16,11 +16,25 @@ def mot_metrics_pedestrian(t, gt):
         C = mm.distances.norm2squared_matrix(gt_dets[:, 2:4]  * 0.025 , t_dets[:, 2:4]  * 0.025, max_d2=1)
         C = np.sqrt(C)
 
-        acc.update(gt_dets[:, 0].astype('int').tolist(),
-                   t_dets[:, 0].astype('int').tolist(),
+        acc.update(gt_dets[:, 1].astype('int').tolist(),
+                   t_dets[:, 1].astype('int').tolist(),
                    C,
                    frameid=frame)
 
     mh = mm.metrics.create()
     summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics)
     return summary
+
+
+if __name__ == "__main__":
+    import os
+
+    t = np.loadtxt('/home/lengx/Code/MVconfig/logs/carlax/town04building_1_TASK_reID_max_e10_2024-03-07_16-47-57/track_pred_0.txt')
+    gt = np.loadtxt('/home/lengx/Code/MVconfig/logs/carlax/town04building_1_TASK_reID_max_e10_2024-03-07_16-47-57/track_gt_0.txt')
+    # recall, precision, moda, modp = matlab_eval(res_fpath, gt_fpath, 'Wildtrack')
+    # print(f'matlab eval: MODA {moda:.1f}, MODP {modp:.1f}, prec {precision:.1f}, rcll {recall:.1f}')
+    # recall, precision, moda, modp = python_eval(res_fpath, gt_fpath, 'Wildtrack')
+    # print(f'python eval: MODA {moda:.1f}, MODP {modp:.1f}, prec {precision:.1f}, rcll {recall:.1f}')
+
+    summary = mot_metrics_pedestrian(t, gt)
+    print(summary)
