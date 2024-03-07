@@ -126,7 +126,7 @@ def main(args):
                    f'steps{args.ppo_steps}_b{args.rl_minibatch_size}_e{args.rl_update_epochs}_lr{args.control_lr}_'
                    f'{args.action_mapping}_ent{args.ent_coef}_stdinit{args.actstd_init}_'
                    f'{"det_" if args.rl_deterministic else ""}' if args.interactive else '')
-    logdir = f'logs/{args.dataset}_new/{"DEBUG_" if is_debug else ""}' \
+    logdir = f'logs/{args.dataset}/{"DEBUG_" if is_debug else ""}' \
              f'{f"{args.carla_cfg}_{RL_settings}" if args.dataset == "carlax" else ""}' \
              f'TASK_{"reID" if args.reID else ""}_{args.aggregation}_e{args.epochs}_' \
              f'{datetime.datetime.today():%Y-%m-%d_%H-%M-%S}' if not args.eval \
