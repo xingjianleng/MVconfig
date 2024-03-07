@@ -150,14 +150,14 @@ class PerspectiveTrainer(object):
         imgs = to_tensor(imgs)[None]
         aug_mats, proj_mats = to_tensor(aug_mats)[None], to_tensor(proj_mats)[None]
         model_feat, _ = self.model.get_feat(imgs.cuda(), aug_mats, proj_mats)
-        world_feat, (world_heatmap, world_offset, world_id) = self.model.get_output(model_feat.cuda())
+        world_id_feat, (world_heatmap, world_offset, world_id) = self.model.get_output(model_feat.cuda())
 
         if not training:
             if visualize:
                 Image.fromarray(cover_visualize(dataset, model_feat[0], world_heatmap[0], world_gt)
                                 ).save(f'{self.logdir}/cover_{batch_idx}.png')
                 save_image(make_grid(imgs[0], 6, normalize=True), f'{self.logdir}/imgs_{batch_idx}.png')
-            return (model_feat.cpu(), (world_feat.detach().cpu(), world_heatmap.detach().cpu(),
+            return (model_feat.cpu(), (world_id_feat.detach().cpu(), world_heatmap.detach().cpu(),
                                        world_offset.detach().cpu(), world_id.detach().cpu()),
                     ({key: value[None] for key, value in world_gt.items()},
                      {key: value[None] for key, value in imgs_gt.items()}), torch.cat(action_history))
@@ -213,7 +213,7 @@ class PerspectiveTrainer(object):
                 # self.writer.add_image("images/imgs", make_grid(torch.cat(imgs), normalize=True),
                 #                       self.rl_global_step, dataformats='CHW')
 
-        return (model_feat, (world_feat, world_heatmap, world_offset, world_id),
+        return (model_feat, (world_id_feat, world_heatmap, world_offset, world_id),
                                 ({key: value[None] for key, value in world_gt.items()},
                                  {key: value[None] for key, value in imgs_gt.items()}), torch.cat(action_history))
 
@@ -611,7 +611,7 @@ class PerspectiveTrainer(object):
                 # NOTE: Let the expand_episode return the `world_id` and `imgs_id` in interactive mode for tuning
                 #       the reID feature. Otherwise it will throw an error
                 self.agent.eval()
-                feat, (world_feat, world_heatmap, world_offset, world_id), (world_gt, imgs_gt), action_history = self.expand_episode(
+                feat, (world_id_feat, world_heatmap, world_offset, world_id), (world_gt, imgs_gt), action_history = self.expand_episode(
                     dataloader.dataset, (step, configs, imgs, aug_mats, proj_mats),
                     True, visualize=self.rl_global_step % 500 == 0,
                     override_action=(torch.rand([N, len(dataloader.dataset.action_names)]) * 2 - 1
@@ -728,7 +728,7 @@ class PerspectiveTrainer(object):
                 if self.args.interactive:
                     self.agent.eval()
                     assert B == 1, 'only support batch_size/num_envs == 1'
-                    feat, (world_feat, world_heatmap, world_offset, world_id), (world_gt, imgs_gt), action_history = self.expand_episode(
+                    feat, (world_id_feat, world_heatmap, world_offset, world_id), (world_gt, imgs_gt), action_history = self.expand_episode(
                         dataloader.dataset, (step, configs, imgs, aug_mats, proj_mats),
                         visualize=(batch_idx < 5), batch_idx=batch_idx, override_action=override_action)
                     # NOTE: Record the first action and use it for the all future steps for interactive mode
@@ -736,7 +736,7 @@ class PerspectiveTrainer(object):
                         override_action = action_history
                 else:
                     feat, _ = self.model.get_feat(imgs.cuda(), aug_mats, proj_mats)
-                    world_feat, (world_heatmap, world_offset, world_id) = self.model.get_output(feat.cuda())
+                    world_id_feat, (world_heatmap, world_offset, world_id) = self.model.get_output(feat.cuda())
                     if batch_idx < 5 and visualize:
                         Image.fromarray(cover_visualize(dataloader.dataset, feat[0], world_heatmap[0],
                                                         {key: value[0] for key, value in world_gt.items()})
@@ -753,7 +753,7 @@ class PerspectiveTrainer(object):
 
             # If reID mode, xys is [B, H*W, 3+128], otherwise [B, H*W, 3].
             # The first 3 channels are [x,y,s], last 128 channels are the embeddings.
-            ids_emb = world_feat if self.args.reID else None
+            ids_emb = world_id_feat if self.args.reID else None
             xys = mvdet_decode(torch.sigmoid(world_heatmap), world_offset, ids_emb=ids_emb,
                                reduce=dataloader.dataset.world_reduce).cpu()
 
