@@ -72,6 +72,9 @@ def main(args):
         carla_container = docker_run_carla(args.carla_gpu, args.carla_port) if not is_debug else None
         with open(f'./cfg/RL/{args.carla_cfg}.cfg', "r") as fp:
             dataset_config = json.load(fp)
+        # reID mode, has to turn on motion :( !!!
+        if args.reID:
+            dataset_config['motion'] = True
         base = CarlaX(dataset_config, port=args.carla_port, tm_port=args.carla_tm_port, euler2vec=args.euler2vec)
         args.num_workers = 0
         args.batch_size = 1 if args.batch_size is None else args.batch_size
