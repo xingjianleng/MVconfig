@@ -804,7 +804,7 @@ class PerspectiveTrainer(object):
         moda, modp, precision, recall, stats = evaluateDetection_py(res,
                                                                     dataloader.dataset.get_gt_array(),
                                                                     dataloader.dataset.frames)
-        
+
         # Add MOTA during testing
         track_res = torch.stack(track_res_list, dim=0).numpy() if track_res_list else np.empty([0, 4])
         motas, motps, track_precisions, track_recalls = [], [], [], []
@@ -817,11 +817,15 @@ class PerspectiveTrainer(object):
 
         # Split the testing according to each scene, since the MOTA/MOTP should be calculated for each scene
         # We split the prediction based on the scene length.
-        for start, end in zip(tracker_reset_frames[:-1], tracker_reset_frames[1:]):
+        for track_id, (start, end) in enumerate(zip(tracker_reset_frames[:-1], tracker_reset_frames[1:])):
             # Frames that satisfies the condition
             t = track_res[(track_res[:, 0] >= start) & (track_res[:, 0] < end)]
             gt = dataloader.dataset.get_gt_array(reID=True)
             gt = gt[(gt[:, 0] >= start) & (gt[:, 0] < end)]
+
+            # Save the t and gt to txt files, used to plot the tracking results
+            np.savetxt(f'{self.logdir}/track_pred_{track_id}.txt', t)
+            np.savetxt(f'{self.logdir}/track_gt_{track_id}.txt', gt)
 
             # Compute the MOTA, MOTP, precision, recall
             summary = mot_metrics_pedestrian(t, gt)
