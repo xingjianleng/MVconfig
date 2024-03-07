@@ -331,10 +331,10 @@ class CarlaCameraSeqEnv(gym.Env):
         # you may need to use copy.deepcopy() to avoid effects from further steps
         return observation, info
 
-    def spawn_and_render(self, use_depth=False):
+    def spawn_and_render(self, use_depth=False, is_train=False):
         if not use_depth:
             self.spawn_pedestrians(n_chatgroup=self.opts['n_chatgroup'], n_walk=self.opts['n_walk'],
-                                   motion=self.opts['motion'])
+                                   motion=self.opts['motion'] and not is_train)
         if self.interactive:
             for cam in range(self.num_cam):
                 self.cameras[cam].destroy()

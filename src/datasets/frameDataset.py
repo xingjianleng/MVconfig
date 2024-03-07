@@ -314,7 +314,7 @@ class frameDataset(VisionDataset):
                 # otherwise, we render continuous frames
                 if need_reset:
                     # render the first frame, need to spawn
-                    observation, info = self.base.env.spawn_and_render(use_depth)
+                    observation, info = self.base.env.spawn_and_render(use_depth, is_train='train' in self.split)
                 else:
                     # render the next frame, no need to spawn
                     observation, info = self.base.env.render_and_update_pedestrian_gts(use_depth)
